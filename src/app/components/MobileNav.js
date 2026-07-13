@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { company } from "@/config/company";
 import {
   LayoutDashboard,
   Package,
@@ -18,9 +19,9 @@ const menu = [
   { name: "Products", href: "/products", icon: Package },
   { name: "Production", href: "/production", icon: Factory },
   { name: "Dispatch", href: "/dispatch", icon: Truck },
-  { name: "Customers", href: "/customers", icon: Users },
-  { name: "Reports", href: "/reports", icon: FileText },
-];
+  { name: "Customers", href: "/customers", icon: Users, enabled: company.features.customers },
+  { name: "Reports", href: "/reports", icon: FileText, enabled: company.features.reports },
+].filter((item) => item.enabled !== false);
 
 export default function MobileNav() {
   const pathname = usePathname();

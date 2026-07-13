@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getCurrentStock } from "@/lib/stock";
-import { Truck } from "lucide-react";
+import { Truck, History } from "lucide-react";
 
 export default function Dispatch() {
   const [products, setProducts] = useState([]);
@@ -169,7 +170,16 @@ export default function Dispatch() {
         </div>
 
         <div>
-          <h2 className="mb-4 text-sm font-semibold text-[var(--muted)]">Recent Dispatches</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--muted)]">Recent Dispatches</h2>
+            <Link
+              href="/dispatch/history"
+              className="flex items-center gap-1.5 text-sm text-[var(--primary)] hover:underline"
+            >
+              <History size={14} />
+              View full history
+            </Link>
+          </div>
 
           <div className="overflow-hidden rounded-xl border border-[var(--border)]">
             {loading ? (

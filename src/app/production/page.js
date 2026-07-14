@@ -73,7 +73,7 @@ export default function Production() {
     <main className="p-8 text-[var(--text)]">
       <h1 className="mb-6 text-2xl font-bold">Production</h1>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="h-fit rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
           <h2 className="mb-4 text-sm font-semibold text-[var(--muted)]">Log Production</h2>
 

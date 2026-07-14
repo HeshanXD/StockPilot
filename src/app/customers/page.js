@@ -68,7 +68,7 @@ export default function Customers() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="h-fit rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
           <h2 className="mb-4 text-sm font-semibold text-[var(--muted)]">Add Customer</h2>
 

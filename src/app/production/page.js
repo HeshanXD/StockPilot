@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Factory, History } from "lucide-react";
+import { checkIngredientsForProduction } from "@/lib/ingredients";
+import { Factory, History, AlertTriangle } from "lucide-react";
 
 export default function Production() {
   const [products, setProducts] = useState([]);
@@ -12,6 +13,9 @@ export default function Production() {
   const [productionHistory, setProductionHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [ingredientPreview, setIngredientPreview] = useState([]);
+  const [checkingIngredients, setCheckingIngredients] = useState(false);
 
   async function fetchProducts() {
     const { data, error } = await supabase.from("products").select("*");
@@ -46,35 +50,98 @@ export default function Production() {
     fetchProductionHistory();
   }, []);
 
+  // Whenever the chosen product or quantity changes, re-check the recipe
+  // so the person sees ingredient impact before they even hit submit.
+  useEffect(() => {
+    async function runCheck() {
+      if (!productId || !quantity || Number(quantity) <= 0) {
+        setIngredientPreview([]);
+        return;
+      }
+
+      setCheckingIngredients(true);
+      const result = await checkIngredientsForProduction(productId, Number(quantity));
+      setIngredientPreview(result);
+      setCheckingIngredients(false);
+    }
+
+    runCheck();
+  }, [productId, quantity]);
+
+  const hasShortage = ingredientPreview.some((line) => line.short);
+
   async function addProduction(e) {
     e.preventDefault();
+
+    if (hasShortage) {
+      const shortList = ingredientPreview
+        .filter((line) => line.short)
+        .map((line) => line.name)
+        .join(", ");
+
+      if (
+        !confirm(
+          `You don't have enough of: ${shortList}. Log this production anyway?`
+        )
+      ) {
+        return;
+      }
+    }
+
     setSaving(true);
 
-    const { error } = await supabase.from("production").insert([
-      {
-        product_id: productId,
-        quantity: Number(quantity),
-      },
-    ]);
-
-    setSaving(false);
+    const { data: productionRow, error } = await supabase
+      .from("production")
+      .insert([
+        {
+          product_id: productId,
+          quantity: Number(quantity),
+        },
+      ])
+      .select()
+      .single();
 
     if (error) {
+      setSaving(false);
       console.log(error);
       alert("Error adding production: " + error.message);
-    } else {
-      setProductId("");
-      setQuantity("");
-      fetchProductionHistory();
+      return;
     }
+
+    // Automatically deduct the recipe's ingredients for this batch.
+    if (ingredientPreview.length > 0) {
+      const usageRows = ingredientPreview.map((line) => ({
+        ingredient_id: line.ingredientId,
+        product_id: productId,
+        quantity: line.required,
+      }));
+
+      const { error: usageError } = await supabase
+        .from("ingredient_usage")
+        .insert(usageRows);
+
+      if (usageError) {
+        console.log(usageError);
+        alert(
+          "Production was logged, but ingredient stock couldn't be updated: " +
+            usageError.message
+        );
+      }
+    }
+
+    setSaving(false);
+    setProductId("");
+    setQuantity("");
+    setIngredientPreview([]);
+    fetchProductionHistory();
   }
 
   return (
     <main className="p-8 text-[var(--text)]">
       <h1 className="mb-6 text-2xl font-bold">Production</h1>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="h-fit rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="h-fit min-w-0 rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
           <h2 className="mb-4 text-sm font-semibold text-[var(--muted)]">Log Production</h2>
 
           <form onSubmit={addProduction} className="space-y-4">
@@ -107,6 +174,50 @@ export default function Production() {
               />
             </div>
 
+            {/* Live ingredient impact preview */}
+            {checkingIngredients ? (
+              <p className="text-xs text-[var(--muted)]">Checking ingredient stock...</p>
+            ) : ingredientPreview.length > 0 ? (
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">
+                <p className="mb-2 text-xs font-medium text-[var(--muted)]">
+                  This will use:
+                </p>
+                <div className="space-y-1.5">
+                  {ingredientPreview.map((line) => (
+                    <div
+                      key={line.ingredientId}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <span className={line.short ? "text-amber-400" : ""}>
+                        {line.name}
+                      </span>
+                      <span className={line.short ? "text-amber-400" : "text-[var(--muted)]"}>
+                        {line.required} {line.unit} needed · {line.available} {line.unit} on hand
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {hasShortage && (
+                  <div className="mt-3 flex items-start gap-1.5 border-t border-[var(--border)] pt-2.5 text-xs text-amber-400">
+                    <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                    <span>
+                      Not enough ingredient stock for this batch — logging it will let
+                      ingredients go negative. Restock first if you can.
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : productId ? (
+              <p className="text-xs text-[var(--muted)]">
+                No recipe set for this product yet — production will be logged without
+                affecting ingredient stock.{" "}
+                <Link href="/recipes" className="text-[var(--primary)] hover:underline">
+                  Set up a recipe
+                </Link>
+              </p>
+            ) : null}
+
             <button
               disabled={saving}
               className="w-full rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
@@ -116,8 +227,8 @@ export default function Production() {
           </form>
         </div>
 
-        <div>
-          <div className="mb-4 flex items-center justify-between">
+        <div className="min-w-0">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-[var(--muted)]">Recent Production</h2>
             <Link
               href="/production/history"
@@ -128,7 +239,7 @@ export default function Production() {
             </Link>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
             {loading ? (
               <div className="p-10 text-center text-sm text-[var(--muted)]">
                 Loading...

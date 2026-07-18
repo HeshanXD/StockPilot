@@ -8,8 +8,9 @@ const PUBLIC_PATHS = ["/login", "/signup"];
 // Map disabled feature flags to the routes they gate. A client without
 // the "reports" feature can't reach /reports even by typing the URL.
 const FEATURE_ROUTES = {
-  reports: "/reports",
-  customers: "/customers",
+  reports: ["/reports"],
+  customers: ["/customers"],
+  ingredients: ["/ingredients", "/recipes"],
 };
 
 export async function proxy(request) {
@@ -58,8 +59,11 @@ export async function proxy(request) {
   }
 
   // Feature disabled for this client -> block direct URL access too
-  for (const [feature, route] of Object.entries(FEATURE_ROUTES)) {
-    if (path.startsWith(route) && !company.features[feature]) {
+  for (const [feature, routes] of Object.entries(FEATURE_ROUTES)) {
+    if (
+      routes.some((route) => path.startsWith(route)) &&
+      !company.features[feature]
+    ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }

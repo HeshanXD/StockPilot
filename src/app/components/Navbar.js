@@ -10,6 +10,8 @@ import { company } from "@/config/company";
 import {
   LayoutDashboard,
   Package,
+  Wheat,
+  ClipboardList,
   Factory,
   Truck,
   Users,
@@ -38,12 +40,50 @@ export default function Navbar() {
 
 
   const menu = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Products", href: "/products", icon: Package },
-    { name: "Production", href: "/production", icon: Factory },
-    { name: "Dispatch", href: "/dispatch", icon: Truck },
-    { name: "Customers", href: "/customers", icon: Users, enabled: company.features.customers },
-    { name: "Reports", href: "/reports", icon: FileText, enabled: company.features.reports }
+    {
+      name: "Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard
+    },
+    {
+      name: "Products",
+      href: "/products",
+      icon: Package
+    },
+    {
+      name: "Ingredients",
+      href: "/ingredients",
+      icon: Wheat,
+      enabled: company.features.ingredients
+    },
+    {
+      name: "Recipes",
+      href: "/recipes",
+      icon: ClipboardList,
+      enabled: company.features.ingredients
+    },
+    {
+      name: "Production",
+      href: "/production",
+      icon: Factory
+    },
+    {
+      name: "Dispatch",
+      href: "/dispatch",
+      icon: Truck
+    },
+    {
+      name: "Customers",
+      href: "/customers",
+      icon: Users,
+      enabled: company.features.customers
+    },
+    {
+      name: "Reports",
+      href: "/reports",
+      icon: FileText,
+      enabled: company.features.reports
+    }
   ].filter((item) => item.enabled !== false);
 
 
@@ -130,6 +170,7 @@ export default function Navbar() {
 
 
       </div>
+
 
 
 

@@ -7,6 +7,8 @@ import { company } from "@/config/company";
 import {
   LayoutDashboard,
   Package,
+  Wheat,
+  ClipboardList,
   Factory,
   Truck,
   Users,
@@ -17,6 +19,8 @@ import {
 const menu = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Products", href: "/products", icon: Package },
+  { name: "Ingredients", href: "/ingredients", icon: Wheat, enabled: company.features.ingredients },
+  { name: "Recipes", href: "/recipes", icon: ClipboardList, enabled: company.features.ingredients },
   { name: "Production", href: "/production", icon: Factory },
   { name: "Dispatch", href: "/dispatch", icon: Truck },
   { name: "Customers", href: "/customers", icon: Users, enabled: company.features.customers },

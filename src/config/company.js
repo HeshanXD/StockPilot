@@ -14,5 +14,6 @@ export const company = {
   features: {
     reports: process.env.NEXT_PUBLIC_FEATURE_REPORTS !== "false",
     customers: process.env.NEXT_PUBLIC_FEATURE_CUSTOMERS !== "false",
+    ingredients: process.env.NEXT_PUBLIC_FEATURE_INGREDIENTS !== "false",
   },
 };

@@ -40,21 +40,15 @@ export default function MobileNav() {
 
   return (
     <nav
+      style={{
+        backgroundColor: `${company.colors.primary}CC`, // semi-transparent
+        borderTop: `1px solid ${company.colors.border}`,
+        color: company.colors.text,
+        backdropFilter: "blur(6px)", // frosted glass effect
+      }}
       className="
-      fixed
-      bottom-0
-      left-0
-      z-50
-      flex
-      w-full
-      justify-between
-      overflow-x-auto
-      border-t
-      border-slate-700
-      bg-slate-900
-      px-1
-      py-2
-      md:hidden
+        fixed bottom-0 left-0 z-50 flex w-full justify-between
+        overflow-x-auto px-1 py-2 md:hidden
       "
     >
       {menu.map((item) => {
@@ -65,9 +59,15 @@ export default function MobileNav() {
           <Link
             key={item.name}
             href={item.href}
-            className={`flex min-w-[52px] flex-1 flex-col items-center gap-1 rounded-lg py-1.5 text-[10px] font-medium transition ${
-              active ? "text-blue-400" : "text-slate-400"
-            }`}
+            style={{
+              color: active ? company.colors.primary : company.colors.text,
+              backgroundColor: active ? company.colors.card : "transparent",
+            }}
+            className="
+              flex min-w-[52px] flex-1 flex-col items-center gap-1
+              rounded-lg py-1.5 text-[10px] font-medium transition
+              hover:bg-[var(--card)] hover:text-[var(--primary)]
+            "
           >
             <Icon size={19} />
             {item.name}
@@ -77,7 +77,12 @@ export default function MobileNav() {
 
       <button
         onClick={handleLogout}
-        className="flex min-w-[52px] flex-1 flex-col items-center gap-1 rounded-lg py-1.5 text-[10px] font-medium text-slate-400 transition"
+        style={{ color: company.colors.text }}
+        className="
+          flex min-w-[52px] flex-1 flex-col items-center gap-1
+          rounded-lg py-1.5 text-[10px] font-medium transition
+          hover:bg-[var(--card)] hover:text-[var(--primary)]
+        "
       >
         <LogOut size={19} />
         Sign out

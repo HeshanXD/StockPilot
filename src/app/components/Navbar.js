@@ -137,7 +137,7 @@ export default function Navbar() {
         >
 
           <Image
-            src="/logo.png"
+            src="/poshacrunch.png"
             width={42}
             height={42}
             alt="Company Logo"

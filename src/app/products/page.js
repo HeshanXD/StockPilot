@@ -18,6 +18,7 @@ export default function Products() {
     const { data, error } = await supabase
       .from("products")
       .select("*")
+      .eq("is_active", true) // only active products
       .order("id", { ascending: false });
 
     if (error) {
@@ -42,7 +43,11 @@ export default function Products() {
 
     setDeletingId(id);
 
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    // Soft delete instead of hard delete
+    const { error } = await supabase
+      .from("products")
+      .update({ is_active: false })
+      .eq("id", id);
 
     setDeletingId(null);
 
@@ -97,7 +102,8 @@ export default function Products() {
           <div className="space-y-3 md:hidden">
             {products.map((product) => {
               const stock = stockByProduct[product.id] ?? product.quantity;
-              const isLow = product.minimum_stock && stock <= product.minimum_stock;
+              const isLow =
+                product.minimum_stock && stock <= product.minimum_stock;
 
               return (
                 <div
@@ -157,7 +163,8 @@ export default function Products() {
               <tbody>
                 {products.map((product) => {
                   const stock = stockByProduct[product.id] ?? product.quantity;
-                  const isLow = product.minimum_stock && stock <= product.minimum_stock;
+                  const isLow =
+                    product.minimum_stock && stock <= product.minimum_stock;
 
                   return (
                     <tr

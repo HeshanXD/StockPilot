@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { company } from "@/config/company";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -20,6 +21,7 @@ import {
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -34,6 +36,10 @@ export default function Navbar() {
     await supabase.auth.signOut();
     router.replace("/login");
     router.refresh();
+  }
+
+  if (pathname?.startsWith("/login") || pathname?.startsWith("/signup")) {
+    return null;
   }
 
   const menu = [

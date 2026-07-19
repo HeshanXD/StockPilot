@@ -33,7 +33,8 @@ export default function Dispatch() {
 
     const { data: productData, error: productError } = await supabase
       .from("products")
-      .select("*");
+      .select("*")
+      .eq("is_active", true);
 
     const { data: customerData, error: customerError } = await supabase
       .from("customers")

@@ -1,6 +1,7 @@
 import Navbar from "./components/Navbar";
 import MobileNav from "./components/MobileNav";
 import LowStockAlert from "./components/LowStockAlert";
+import AppShell from "./components/AppShell";
 import "./globals.css";
 import { company } from "@/config/company";
 
@@ -34,20 +35,7 @@ export default function RootLayout({ children }) {
 
         <LowStockAlert />
 
-
-        <main
-          className="
-          md:ml-20
-          min-h-screen
-          p-6
-          pb-24
-          md:pb-6
-          "
-        >
-
-          {children}
-
-        </main>
+        <AppShell>{children}</AppShell>
 
 
       </body>

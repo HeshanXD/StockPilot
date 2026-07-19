@@ -22,7 +22,7 @@ export default function Recipes() {
     setLoading(true);
 
     const [{ data: productData }, { data: ingredientData }] = await Promise.all([
-      supabase.from("products").select("id, name"),
+      supabase.from("products").select("id, name").eq("is_active", true),
       supabase.from("ingredients").select("id, name, unit"),
     ]);
 

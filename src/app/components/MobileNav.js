@@ -30,6 +30,11 @@ const menu = [
 export default function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
+  
+if (pathname?.startsWith("/login") || pathname?.startsWith("/signup")) {
+    return null;
+  }
+
 
   async function handleLogout() {
     const supabase = createClient();

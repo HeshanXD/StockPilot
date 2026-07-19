@@ -19,7 +19,7 @@ export default function Production() {
   const [checkingIngredients, setCheckingIngredients] = useState(false);
 
   async function fetchProducts() {
-    const { data, error } = await supabase.from("products").select("*");
+    const { data, error } = await supabase.from("products").select("*").eq("is_active", true);
 
     if (error) {
       console.log(error);

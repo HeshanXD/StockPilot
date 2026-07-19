@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getCurrentStock } from "@/lib/stock";
-import { Package, Plus, Trash2 } from "lucide-react";
+import { Package, Plus, Trash2, ArchiveRestore } from "lucide-react";
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [stockByProduct, setStockByProduct] = useState({});
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
+  const [workingId, setWorkingId] = useState(null);
 
   async function fetchProducts() {
     setLoading(true);
@@ -18,7 +18,6 @@ export default function Products() {
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .eq("is_active", true) // only active products
       .order("id", { ascending: false });
 
     if (error) {
@@ -38,30 +37,63 @@ export default function Products() {
     setLoading(false);
   }
 
-  async function deleteProduct(id, name) {
-    if (!confirm(`Delete "${name}"? This can't be undone.`)) return;
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
-    setDeletingId(id);
+  async function deleteOrArchive(product) {
+    if (!confirm(`Delete "${product.name}"? This can't be undone.`)) return;
 
-    // Soft delete instead of hard delete
+    setWorkingId(product.id);
+
+    const { error } = await supabase.from("products").delete().eq("id", product.id);
+
+    if (!error) {
+      setWorkingId(null);
+      fetchProducts();
+      return;
+    }
+
+    if (error.code === "23503") {
+      const wantsArchive = confirm(
+        `"${product.name}" has production, dispatch, or recipe history, so it can't be fully deleted without losing that history.\n\nArchive it instead? It will disappear from all "choose product" dropdowns, but stay visible here and in your reports.`
+      );
+
+      if (wantsArchive) {
+        const { error: archiveError } = await supabase
+          .from("products")
+          .update({ is_active: false })
+          .eq("id", product.id);
+
+        if (archiveError) {
+          alert("Error archiving product: " + archiveError.message);
+        } else {
+          fetchProducts();
+        }
+      }
+    } else {
+      alert("Error deleting product: " + error.message);
+    }
+
+    setWorkingId(null);
+  }
+
+  async function restoreProduct(product) {
+    setWorkingId(product.id);
+
     const { error } = await supabase
       .from("products")
-      .update({ is_active: false })
-      .eq("id", id);
+      .update({ is_active: true })
+      .eq("id", product.id);
 
-    setDeletingId(null);
+    setWorkingId(null);
 
     if (error) {
-      console.log(error);
-      alert("Error deleting product: " + error.message);
+      alert("Error restoring product: " + error.message);
     } else {
       fetchProducts();
     }
   }
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
   return (
     <main className="p-8 text-[var(--text)]">
@@ -102,24 +134,28 @@ export default function Products() {
           <div className="space-y-3 md:hidden">
             {products.map((product) => {
               const stock = stockByProduct[product.id] ?? product.quantity;
-              const isLow =
-                product.minimum_stock && stock <= product.minimum_stock;
+              const isLow = product.minimum_stock && stock <= product.minimum_stock;
+              const isArchived = product.is_active === false;
 
               return (
                 <div
                   key={product.id}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+                  className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 ${
+                    isArchived ? "opacity-60" : ""
+                  }`}
                 >
                   <div className="mb-3 flex items-start justify-between gap-2">
                     <p className="font-semibold">{product.name}</p>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
-                        isLow
+                        isArchived
+                          ? "bg-slate-500/10 text-slate-400"
+                          : isLow
                           ? "bg-red-500/10 text-red-400"
                           : "bg-green-500/10 text-green-400"
                       }`}
                     >
-                      {isLow ? "Low stock" : "Healthy"}
+                      {isArchived ? "Archived" : isLow ? "Low stock" : "Healthy"}
                     </span>
                   </div>
 
@@ -136,14 +172,25 @@ export default function Products() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => deleteProduct(product.id, product.name)}
-                    disabled={deletingId === product.id}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] py-2 text-xs font-medium text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
-                  >
-                    <Trash2 size={14} />
-                    {deletingId === product.id ? "Deleting..." : "Delete"}
-                  </button>
+                  {isArchived ? (
+                    <button
+                      onClick={() => restoreProduct(product)}
+                      disabled={workingId === product.id}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] py-2 text-xs font-medium text-green-400 transition hover:bg-green-500/10 disabled:opacity-50"
+                    >
+                      <ArchiveRestore size={14} />
+                      {workingId === product.id ? "Restoring..." : "Restore"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => deleteOrArchive(product)}
+                      disabled={workingId === product.id}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] py-2 text-xs font-medium text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+                    >
+                      <Trash2 size={14} />
+                      {workingId === product.id ? "Working..." : "Delete"}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -163,13 +210,15 @@ export default function Products() {
               <tbody>
                 {products.map((product) => {
                   const stock = stockByProduct[product.id] ?? product.quantity;
-                  const isLow =
-                    product.minimum_stock && stock <= product.minimum_stock;
+                  const isLow = product.minimum_stock && stock <= product.minimum_stock;
+                  const isArchived = product.is_active === false;
 
                   return (
                     <tr
                       key={product.id}
-                      className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--card)]"
+                      className={`border-b border-[var(--border)] last:border-0 hover:bg-[var(--card)] ${
+                        isArchived ? "opacity-60" : ""
+                      }`}
                     >
                       <td className="p-3 font-medium">{product.name}</td>
                       <td className="p-3">{stock}</td>
@@ -179,23 +228,36 @@ export default function Products() {
                       <td className="p-3">
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            isLow
+                            isArchived
+                              ? "bg-slate-500/10 text-slate-400"
+                              : isLow
                               ? "bg-red-500/10 text-red-400"
                               : "bg-green-500/10 text-green-400"
                           }`}
                         >
-                          {isLow ? "Low stock" : "Healthy"}
+                          {isArchived ? "Archived" : isLow ? "Low stock" : "Healthy"}
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <button
-                          onClick={() => deleteProduct(product.id, product.name)}
-                          disabled={deletingId === product.id}
-                          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
-                        >
-                          <Trash2 size={14} />
-                          {deletingId === product.id ? "Deleting..." : "Delete"}
-                        </button>
+                        {isArchived ? (
+                          <button
+                            onClick={() => restoreProduct(product)}
+                            disabled={workingId === product.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-green-400 transition hover:bg-green-500/10 disabled:opacity-50"
+                          >
+                            <ArchiveRestore size={14} />
+                            {workingId === product.id ? "Restoring..." : "Restore"}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => deleteOrArchive(product)}
+                            disabled={workingId === product.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+                          >
+                            <Trash2 size={14} />
+                            {workingId === product.id ? "Working..." : "Delete"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

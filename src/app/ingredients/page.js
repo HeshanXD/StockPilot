@@ -14,9 +14,6 @@ export default function Ingredients() {
   const [restockingId, setRestockingId] = useState(null);
   const [restockAmount, setRestockAmount] = useState("");
   const [savingRestock, setSavingRestock] = useState(false);
-  const [editingMarginId, setEditingMarginId] = useState(null);
-  const [marginValue, setMarginValue] = useState("");
-  const [savingMargin, setSavingMargin] = useState(false);
 
   async function fetchIngredients() {
     setLoading(true);
@@ -84,25 +81,6 @@ export default function Ingredients() {
     }
   }
 
-  async function saveMargin(ingredientId) {
-    setSavingMargin(true);
-
-    const { error } = await supabase
-      .from("ingredients")
-      .update({ safety_margin_percent: Number(marginValue) || 0 })
-      .eq("id", ingredientId);
-
-    setSavingMargin(false);
-
-    if (error) {
-      alert("Error updating margin: " + error.message);
-    } else {
-      setEditingMarginId(null);
-      setMarginValue("");
-      fetchIngredients();
-    }
-  }
-
   return (
     <main className="p-8 text-[var(--text)]">
       <div className="mb-6 flex items-center justify-between">
@@ -145,7 +123,6 @@ export default function Ingredients() {
                 <th className="p-3 font-medium text-[var(--muted)]">Ingredient</th>
                 <th className="p-3 font-medium text-[var(--muted)]">Current Stock</th>
                 <th className="p-3 font-medium text-[var(--muted)]">Minimum</th>
-                <th className="p-3 font-medium text-[var(--muted)]">Margin</th>
                 <th className="p-3 font-medium text-[var(--muted)]">Status</th>
                 <th className="p-3 font-medium text-[var(--muted)]"></th>
               </tr>
@@ -155,7 +132,6 @@ export default function Ingredients() {
                 const stock = stockByIngredient[ingredient.id] ?? ingredient.starting_stock;
                 const isLow = ingredient.minimum_stock && stock <= ingredient.minimum_stock;
                 const isRestocking = restockingId === ingredient.id;
-                const isEditingMargin = editingMarginId === ingredient.id;
 
                 return (
                   <tr
@@ -168,44 +144,6 @@ export default function Ingredients() {
                     </td>
                     <td className="p-3 text-[var(--muted)]">
                       {ingredient.minimum_stock ?? "—"} {ingredient.unit}
-                    </td>
-                    <td className="p-3">
-                      {isEditingMargin ? (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            autoFocus
-                            value={marginValue}
-                            onChange={(e) => setMarginValue(e.target.value)}
-                            className="w-16 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm outline-none focus:border-[var(--primary)]"
-                          />
-                          <button
-                            onClick={() => saveMargin(ingredient.id)}
-                            disabled={savingMargin}
-                            className="rounded-lg bg-[var(--primary)] px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
-                          >
-                            {savingMargin ? "..." : "Save"}
-                          </button>
-                          <button
-                            onClick={() => setEditingMarginId(null)}
-                            className="text-xs text-[var(--muted)] hover:text-[var(--text)]"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setEditingMarginId(ingredient.id);
-                            setMarginValue(String(ingredient.safety_margin_percent ?? 0));
-                          }}
-                          className="text-[var(--muted)] underline decoration-dotted hover:text-[var(--text)]"
-                        >
-                          {ingredient.safety_margin_percent ?? 0}%
-                        </button>
-                      )}
                     </td>
                     <td className="p-3">
                       <span

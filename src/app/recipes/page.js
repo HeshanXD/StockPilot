@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { compatibleUnits } from "@/lib/ingredients";
 import { ClipboardList, Plus, Trash2 } from "lucide-react";
 
 export default function Recipes() {
@@ -14,6 +15,7 @@ export default function Recipes() {
 
   const [newIngredientId, setNewIngredientId] = useState("");
   const [newQuantity, setNewQuantity] = useState("");
+  const [newUnit, setNewUnit] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function fetchBaseData() {
@@ -34,7 +36,7 @@ export default function Recipes() {
 
     const { data, error } = await supabase
       .from("product_ingredients")
-      .select(`id, quantity_per_unit, ingredients(id, name, unit)`)
+      .select(`id, quantity_per_unit, recipe_unit, ingredients(id, name, unit)`)
       .eq("product_id", productId);
 
     if (error) {
@@ -61,9 +63,28 @@ export default function Recipes() {
   const usedIngredientIds = recipeLines.map((line) => line.ingredients?.id);
   const availableIngredients = ingredients.filter((i) => !usedIngredientIds.includes(i.id));
 
+  const selectedNewIngredient = availableIngredients.find(
+    (i) => String(i.id) === String(newIngredientId)
+  );
+  const unitOptions = selectedNewIngredient ? compatibleUnits(selectedNewIngredient.unit) : [];
+
+  function handleSelectIngredient(id) {
+    setNewIngredientId(id);
+    const ingredient = availableIngredients.find((i) => String(i.id) === String(id));
+    if (ingredient) {
+      const options = compatibleUnits(ingredient.unit);
+      const smallUnit = options.includes("g")
+        ? "g"
+        : options.includes("ml")
+        ? "ml"
+        : ingredient.unit;
+      setNewUnit(smallUnit);
+    }
+  }
+
   async function addLine(e) {
     e.preventDefault();
-    if (!newIngredientId || !newQuantity) return;
+    if (!newIngredientId || !newQuantity || !newUnit) return;
 
     setSaving(true);
 
@@ -72,6 +93,7 @@ export default function Recipes() {
         product_id: selectedProductId,
         ingredient_id: newIngredientId,
         quantity_per_unit: Number(newQuantity),
+        recipe_unit: newUnit,
       },
     ]);
 
@@ -82,6 +104,7 @@ export default function Recipes() {
     } else {
       setNewIngredientId("");
       setNewQuantity("");
+      setNewUnit("");
       fetchRecipe(selectedProductId);
     }
   }
@@ -103,8 +126,10 @@ export default function Recipes() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Recipes</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Define how much of each ingredient goes into one unit of a product.
-          Production will automatically deduct these amounts as you log it.
+          Define how much of each ingredient goes into one unit of a product —
+          in whatever unit makes sense (e.g. grams), even if the ingredient
+          is stocked in a different unit (e.g. kilograms). Production will
+          automatically deduct these amounts as you log it.
         </p>
       </div>
 
@@ -144,25 +169,35 @@ export default function Recipes() {
             </div>
           ) : (
             <div className="mb-5 space-y-2">
-              {recipeLines.map((line) => (
-                <div
-                  key={line.id}
-                  className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
-                >
-                  <span>{line.ingredients?.name}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[var(--muted)]">
-                      {line.quantity_per_unit} {line.ingredients?.unit} per unit
-                    </span>
-                    <button
-                      onClick={() => removeLine(line.id)}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+              {recipeLines.map((line) => {
+                const recipeUnit = line.recipe_unit || line.ingredients?.unit;
+                const differentUnit = recipeUnit !== line.ingredients?.unit;
+
+                return (
+                  <div
+                    key={line.id}
+                    className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+                  >
+                    <span>{line.ingredients?.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[var(--muted)]">
+                        {line.quantity_per_unit} {recipeUnit} per unit
+                        {differentUnit && (
+                          <span className="ml-1 text-[10px]">
+                            (stocked in {line.ingredients?.unit})
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => removeLine(line.id)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -173,45 +208,75 @@ export default function Recipes() {
                 : "Every ingredient you have is already in this recipe."}
             </p>
           ) : (
-            <form onSubmit={addLine} className="flex flex-wrap items-end gap-2">
-              <div className="flex-1 min-w-[140px]">
+            <form onSubmit={addLine} className="space-y-3">
+              <div>
                 <label className="mb-1 block text-xs text-[var(--muted)]">Ingredient</label>
                 <select
                   value={newIngredientId}
-                  onChange={(e) => setNewIngredientId(e.target.value)}
+                  onChange={(e) => handleSelectIngredient(e.target.value)}
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]"
                   required
                 >
                   <option value="">Choose ingredient</option>
                   {availableIngredients.map((i) => (
                     <option key={i.id} value={i.id}>
-                      {i.name}
+                      {i.name} (stocked in {i.unit})
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="w-28">
-                <label className="mb-1 block text-xs text-[var(--muted)]">Qty per unit</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={newQuantity}
-                  onChange={(e) => setNewQuantity(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]"
-                  required
-                />
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="mb-1 block text-xs text-[var(--muted)]">
+                    Amount per unit
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={newQuantity}
+                    onChange={(e) => setNewQuantity(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]"
+                    required
+                    disabled={!newIngredientId}
+                  />
+                </div>
+
+                <div className="w-24">
+                  <label className="mb-1 block text-xs text-[var(--muted)]">Unit</label>
+                  <select
+                    value={newUnit}
+                    onChange={(e) => setNewUnit(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]"
+                    required
+                    disabled={!newIngredientId}
+                  >
+                    {unitOptions.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving || !newIngredientId}
+                  className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                >
+                  <Plus size={15} />
+                  {saving ? "Adding..." : "Add"}
+                </button>
               </div>
 
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-              >
-                <Plus size={15} />
-                {saving ? "Adding..." : "Add"}
-              </button>
+              {selectedNewIngredient && (
+                <p className="text-xs text-[var(--muted)]">
+                  This ingredient is stocked in {selectedNewIngredient.unit} — you can
+                  write this recipe line in {unitOptions.join(" or ")}, whichever is
+                  more natural for a single product unit.
+                </p>
+              )}
             </form>
           )}
         </div>

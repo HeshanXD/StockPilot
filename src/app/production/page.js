@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { checkIngredientsForProduction } from "@/lib/ingredients";
-import { Factory, History, AlertTriangle } from "lucide-react";
+import { Factory, History, AlertTriangle, Trash2 } from "lucide-react";
 
 export default function Production() {
   const [products, setProducts] = useState([]);
@@ -13,6 +13,7 @@ export default function Production() {
   const [productionHistory, setProductionHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const [ingredientPreview, setIngredientPreview] = useState([]);
   const [checkingIngredients, setCheckingIngredients] = useState(false);
@@ -50,8 +51,6 @@ export default function Production() {
     fetchProductionHistory();
   }, []);
 
-  // Whenever the chosen product or quantity changes, re-check the recipe
-  // so the person sees ingredient impact before they even hit submit.
   useEffect(() => {
     async function runCheck() {
       if (!productId || !quantity || Number(quantity) <= 0) {
@@ -108,12 +107,12 @@ export default function Production() {
       return;
     }
 
-    // Automatically deduct the recipe's ingredients for this batch.
     if (ingredientPreview.length > 0) {
       const usageRows = ingredientPreview.map((line) => ({
         ingredient_id: line.ingredientId,
         product_id: productId,
-        quantity: line.required,
+        production_id: productionRow.id,
+        quantity: line.requiredInIngredientUnit,
       }));
 
       const { error: usageError } = await supabase
@@ -134,6 +133,25 @@ export default function Production() {
     setQuantity("");
     setIngredientPreview([]);
     fetchProductionHistory();
+  }
+
+  async function deleteProduction(id) {
+    if (
+      !confirm(
+        "Delete this production record? Any ingredients it used will be added back to stock."
+      )
+    )
+      return;
+
+    setDeletingId(id);
+    const { error } = await supabase.from("production").delete().eq("id", id);
+    setDeletingId(null);
+
+    if (error) {
+      alert("Error deleting production record: " + error.message);
+    } else {
+      fetchProductionHistory();
+    }
   }
 
   return (
@@ -174,7 +192,6 @@ export default function Production() {
               />
             </div>
 
-            {/* Live ingredient impact preview */}
             {checkingIngredients ? (
               <p className="text-xs text-[var(--muted)]">Checking ingredient stock...</p>
             ) : ingredientPreview.length > 0 ? (
@@ -239,42 +256,44 @@ export default function Production() {
             </Link>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-            {loading ? (
-              <div className="p-10 text-center text-sm text-[var(--muted)]">
-                Loading...
-              </div>
-            ) : productionHistory.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 p-10 text-center">
-                <Factory size={28} className="text-[var(--muted)]" />
-                <p className="text-sm text-[var(--muted)]">No production logged yet.</p>
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)] bg-[var(--card)] text-left">
-                    <th className="p-3 font-medium text-[var(--muted)]">Product</th>
-                    <th className="p-3 font-medium text-[var(--muted)]">Quantity</th>
-                    <th className="p-3 font-medium text-[var(--muted)]">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productionHistory.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--card)]"
+          {loading ? (
+            <div className="rounded-xl border border-[var(--border)] p-10 text-center text-sm text-[var(--muted)]">
+              Loading...
+            </div>
+          ) : productionHistory.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-[var(--border)] p-10 text-center">
+              <Factory size={28} className="text-[var(--muted)]" />
+              <p className="text-sm text-[var(--muted)]">No production logged yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {productionHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+                >
+                  <div>
+                    <p className="font-medium">{item.products?.name || "Unknown"}</p>
+                    <p className="text-xs text-[var(--muted)]">
+                      {new Date(item.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-green-400">+{item.quantity}</span>
+                    <button
+                      onClick={() => deleteProduction(item.id)}
+                      disabled={deletingId === item.id}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
                     >
-                      <td className="p-3">{item.products?.name || "Unknown"}</td>
-                      <td className="p-3 text-green-400">+{item.quantity}</td>
-                      <td className="p-3 text-[var(--muted)]">
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                      <Trash2 size={13} />
+                      {deletingId === item.id ? "..." : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </main>

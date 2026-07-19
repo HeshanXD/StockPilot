@@ -15,7 +15,6 @@ export default function AddIngredient() {
   const [unit, setUnit] = useState("kg");
   const [startingStock, setStartingStock] = useState("");
   const [minimumStock, setMinimumStock] = useState("");
-  const [safetyMargin, setSafetyMargin] = useState("0");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -30,7 +29,6 @@ export default function AddIngredient() {
         unit,
         starting_stock: Number(startingStock),
         minimum_stock: Number(minimumStock),
-        safety_margin_percent: Number(safetyMargin) || 0,
       },
     ]);
 
@@ -113,25 +111,6 @@ export default function AddIngredient() {
             <p className="mt-1.5 text-xs text-[var(--muted)]">
               You'll get a low-stock warning once this ingredient drops to or below this amount —
               useful for catching a shortage before it delays production.
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Safety Margin (%)</label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="any"
-              value={safetyMargin}
-              onChange={(e) => setSafetyMargin(e.target.value)}
-              placeholder="Example: 10"
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-            />
-            <p className="mt-1.5 text-xs text-[var(--muted)]">
-              A buffer that's always kept in reserve when calculating how much you could still
-              produce — e.g. 10% means production planning treats 10% of your stock as
-              unavailable, as a safety cushion.
             </p>
           </div>
 

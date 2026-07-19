@@ -2,46 +2,47 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Download, Factory } from "lucide-react";
+import { Download, Factory, Trash2 } from "lucide-react";
 
 export default function ProductionHistory() {
   const [history, setHistory] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
 
   const [productFilter, setProductFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
+  async function load() {
+    setLoading(true);
 
-      const [{ data: productionData, error: productionError }, { data: productData }] =
-        await Promise.all([
-          supabase
-            .from("production")
-            .select(`id, quantity, created_at, products(id, name)`)
-            .order("created_at", { ascending: false }),
-          supabase.from("products").select("id, name"),
-        ]);
+    const [{ data: productionData, error: productionError }, { data: productData }] =
+      await Promise.all([
+        supabase
+          .from("production")
+          .select(`id, quantity, created_at, products(id, name)`)
+          .order("created_at", { ascending: false }),
+        supabase.from("products").select("id, name"),
+      ]);
 
-      if (productionError) {
-        console.log(productionError);
-      } else {
-        setHistory(productionData || []);
-      }
-
-      setProducts(productData || []);
-      setLoading(false);
+    if (productionError) {
+      console.log(productionError);
+    } else {
+      setHistory(productionData || []);
     }
 
+    setProducts(productData || []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
     load();
   }, []);
 
   const filtered = useMemo(() => {
     return history.filter((item) => {
-      if (productFilter !== "all" && item.products?.id !== productFilter) {
+      if (productFilter !== "all" && String(item.products?.id) !== String(productFilter)) {
         return false;
       }
 
@@ -78,6 +79,25 @@ export default function ProductionHistory() {
     URL.revokeObjectURL(url);
   }
 
+  async function deleteRecord(id) {
+    if (
+      !confirm(
+        "Delete this production record? Any ingredients it used will be added back to stock."
+      )
+    )
+      return;
+
+    setDeletingId(id);
+    const { error } = await supabase.from("production").delete().eq("id", id);
+    setDeletingId(null);
+
+    if (error) {
+      alert("Error deleting record: " + error.message);
+    } else {
+      load();
+    }
+  }
+
   return (
     <main className="p-8 text-[var(--text)]">
       <div className="mb-6 flex items-center justify-between">
@@ -98,7 +118,6 @@ export default function ProductionHistory() {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
         <div>
           <label className="mb-1 block text-xs text-[var(--muted)]">Product</label>
@@ -154,45 +173,83 @@ export default function ProductionHistory() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-        {loading ? (
-          <div className="p-10 text-center text-sm text-[var(--muted)]">
-            Loading production history...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 p-12 text-center">
-            <Factory size={32} className="text-[var(--muted)]" />
-            <p className="text-sm text-[var(--muted)]">
-              No production records match these filters.
-            </p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--card)] text-left">
-                <th className="p-3 font-medium text-[var(--muted)]">Product</th>
-                <th className="p-3 font-medium text-[var(--muted)]">Quantity</th>
-                <th className="p-3 font-medium text-[var(--muted)]">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--card)]"
-                >
-                  <td className="p-3">{item.products?.name || "Unknown product"}</td>
-                  <td className="p-3 text-green-400">+{item.quantity}</td>
-                  <td className="p-3 text-[var(--muted)]">
+      {loading ? (
+        <div className="rounded-xl border border-[var(--border)] p-10 text-center text-sm text-[var(--muted)]">
+          Loading production history...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-[var(--border)] p-12 text-center">
+          <Factory size={32} className="text-[var(--muted)]" />
+          <p className="text-sm text-[var(--muted)]">
+            No production records match these filters.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {filtered.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+              >
+                <div>
+                  <p className="font-medium">{item.products?.name || "Unknown product"}</p>
+                  <p className="text-xs text-[var(--muted)]">
                     {new Date(item.created_at).toLocaleString()}
-                  </td>
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold text-green-400">+{item.quantity}</span>
+                  <button
+                    onClick={() => deleteRecord(item.id)}
+                    disabled={deletingId === item.id}
+                    className="rounded-lg p-1.5 text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-xl border border-[var(--border)] md:block">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border)] bg-[var(--card)] text-left">
+                  <th className="p-3 font-medium text-[var(--muted)]">Product</th>
+                  <th className="p-3 font-medium text-[var(--muted)]">Quantity</th>
+                  <th className="p-3 font-medium text-[var(--muted)]">Date</th>
+                  <th className="p-3 font-medium text-[var(--muted)]"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {filtered.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--card)]"
+                  >
+                    <td className="p-3">{item.products?.name || "Unknown product"}</td>
+                    <td className="p-3 text-green-400">+{item.quantity}</td>
+                    <td className="p-3 text-[var(--muted)]">
+                      {new Date(item.created_at).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-right">
+                      <button
+                        onClick={() => deleteRecord(item.id)}
+                        disabled={deletingId === item.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
+                        {deletingId === item.id ? "..." : "Delete"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </main>
   );
 }
